@@ -108,7 +108,7 @@ func (s *Scheduler) clearTasks() {
 	for range s.taskPool {
 		s.uc++
 	}
-	s.log.Infof("未执行任务数为:", s.uc)
+	s.log.Infof("未执行任务数为: %d", s.uc)
 }
 
 func (s *Scheduler) Finish() {

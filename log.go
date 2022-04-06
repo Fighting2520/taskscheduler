@@ -14,11 +14,11 @@ type simpleLog struct {
 }
 
 func (sl *simpleLog) Infof(fmt string, args ...interface{}) {
-	ErrLog.Printf(fmt, args...)
+	InfoLog.Printf(fmt, args...)
 }
 
 func (sl *simpleLog) Errorf(fmt string, args ...interface{}) {
-	InfoLog.Println(fmt, args)
+	ErrLog.Println(fmt, args)
 }
 
 var (
