@@ -63,45 +63,47 @@ func defaultRecoverFunc() {
 
 func (s *Scheduler) Start() {
 	s.log.Infof("scheduler 已经启动, 当前设置任务池总数为: %d, 工作线程数为: %d\n", cap(s.taskPool), cap(s.workPool))
-	var wg sync.WaitGroup
-	defer s.recoverFn()
-	defer func() {
-		wg.Wait()
-		close(s.workPool)
-		s.log.Infof("Scheduler stopped\n")
-		s.done <- struct{}{}
-	}()
-	for {
-		select {
-		case s.workPool <- struct{}{}:
-			task, ok := <-s.taskPool
-			if !ok {
-				<-s.workPool
+	go func() {
+		var wg sync.WaitGroup
+		defer s.recoverFn()
+		defer func() {
+			wg.Wait()
+			close(s.workPool)
+			s.log.Infof("Scheduler stopped\n")
+			s.done <- struct{}{}
+		}()
+		for {
+			select {
+			case s.workPool <- struct{}{}:
+				task, ok := <-s.taskPool
+				if !ok {
+					<-s.workPool
+					return
+				}
+				wg.Add(1)
+				go func() {
+					defer s.recoverFn()
+					defer func() {
+						s.ec++
+						wg.Done()
+						<-s.workPool
+					}()
+					err := s.executor.Do(task)
+					if err != nil {
+						s.log.Errorf("work failed with: %s\n", err)
+					}
+				}()
+			case <-s.ctx.Done():
+				if s.cancel != nil {
+					s.cancel()
+				}
+				s.err = s.ctx.Err()
+				s.clearTasks()
+				s.log.Errorf("scheduler exit with: %s\n", s.ctx.Err())
 				return
 			}
-			wg.Add(1)
-			go func() {
-				defer s.recoverFn()
-				defer func() {
-					s.ec++
-					wg.Done()
-					<-s.workPool
-				}()
-				err := s.executor.Do(task)
-				if err != nil {
-					s.log.Errorf("work failed with: %s\n", err)
-				}
-			}()
-		case <-s.ctx.Done():
-			if s.cancel != nil {
-				s.cancel()
-			}
-			s.err = s.ctx.Err()
-			s.clearTasks()
-			s.log.Errorf("scheduler exit with: %s\n", s.ctx.Err())
-			return
 		}
-	}
+	}()
 }
 
 func (s *Scheduler) clearTasks() {

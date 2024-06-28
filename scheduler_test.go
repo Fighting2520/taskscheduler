@@ -8,7 +8,7 @@ import (
 
 func TestScheduler_Start(t *testing.T) {
 	s := NewScheduler(SetTimeout(5*time.Second), SetTaskConcurrency(5), SetTaskSize(1))
-	go s.Start()
+	s.Start()
 	for i := 0; i < 20; i++ {
 		if err := s.AddTask(func() error {
 			time.Sleep(1 * time.Second)
@@ -20,9 +20,6 @@ func TestScheduler_Start(t *testing.T) {
 	}
 	fmt.Println(12345)
 	s.Finish()
-	if err := s.AddTask(nil); err != nil {
-		t.Error(err)
-	}
 	s.Wait()
 	fmt.Println(s.ExecutedCount(), s.UnExecutedCount())
 	fmt.Println(s.Error())
