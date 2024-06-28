@@ -5,6 +5,7 @@ import (
 	"errors"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 )
 
 type (
@@ -12,8 +13,8 @@ type (
 		executor  Executor
 		ctx       context.Context
 		cancel    context.CancelFunc
-		ec        int // executed task count 已执行的任务数量
-		uc        int // unexecuted task count 未执行的任务数
+		ec        int64 // executed task count 已执行的任务数量
+		uc        int64 // unexecuted task count 未执行的任务数
 		err       error
 		recoverFn RecoverFunc
 		closed    bool
@@ -84,7 +85,7 @@ func (s *Scheduler) Start() {
 				go func() {
 					defer s.recoverFn()
 					defer func() {
-						s.ec++
+						atomic.AddInt64(&s.ec, 1)
 						wg.Done()
 						<-s.workPool
 					}()
@@ -108,7 +109,7 @@ func (s *Scheduler) Start() {
 
 func (s *Scheduler) clearTasks() {
 	for range s.taskPool {
-		s.uc++
+		atomic.AddInt64(&s.uc, 1)
 	}
 	s.log.Infof("未执行任务数为: %d", s.uc)
 }
@@ -136,11 +137,11 @@ func (s *Scheduler) AddTask(fn TaskFunc) error {
 	return nil
 }
 
-func (s *Scheduler) ExecutedCount() int {
+func (s *Scheduler) ExecutedCount() int64 {
 	return s.ec
 }
 
-func (s *Scheduler) UnExecutedCount() int {
+func (s *Scheduler) UnExecutedCount() int64 {
 	return s.uc
 }
 
